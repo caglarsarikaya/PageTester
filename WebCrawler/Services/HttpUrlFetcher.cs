@@ -34,7 +34,7 @@ public class HttpUrlFetcher : IUrlFetcher
 
         try
         {
-            _logger.LogInformation("Fetching URL: {Url}", url);
+            _logger.LogDebug("Fetching URL: {Url}", url);
 
             using var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
             stopwatch.Stop();
@@ -42,7 +42,7 @@ public class HttpUrlFetcher : IUrlFetcher
             result.StatusCode = (int)response.StatusCode;
             result.ResponseTimeMs = stopwatch.ElapsedMilliseconds;
 
-            _logger.LogInformation("Fetched {Url} - Status: {StatusCode}, Time: {ResponseTime}ms",
+            _logger.LogDebug("Fetched {Url} - Status: {StatusCode}, Time: {ResponseTime}ms",
                 url, result.StatusCode, result.ResponseTimeMs);
 
             return result;
@@ -94,7 +94,7 @@ public class HttpUrlFetcher : IUrlFetcher
 
         try
         {
-            _logger.LogInformation("Fetching URL with content: {Url}", url);
+            _logger.LogDebug("Fetching URL with content: {Url}", url);
 
             using var response = await _httpClient.GetAsync(url, HttpCompletionOption.ResponseContentRead, cancellationToken);
 
@@ -109,7 +109,7 @@ public class HttpUrlFetcher : IUrlFetcher
             stopwatch.Stop();
             result.ResponseTimeMs = stopwatch.ElapsedMilliseconds;
 
-            _logger.LogInformation("Fetched {Url} with content - Status: {StatusCode}, Size: {ContentSize} bytes, Time: {ResponseTime}ms",
+            _logger.LogDebug("Fetched {Url} with content - Status: {StatusCode}, Size: {ContentSize} bytes, Time: {ResponseTime}ms",
                 url, result.StatusCode, content?.Length ?? 0, result.ResponseTimeMs);
 
             return (result, content);

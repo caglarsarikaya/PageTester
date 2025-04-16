@@ -54,6 +54,9 @@ public class WebCrawler : IWebCrawler
 
         try
         {
+            _logger.LogDebug("Queue status: {QueueCount} URLs queued, {VisitedCount} URLs processed", 
+                _crawlQueue.Count, _visitedUrls.Count);
+
             // Process the queue until it's empty
             while (!_crawlQueue.IsEmpty && !cancellationToken.IsCancellationRequested)
             {
@@ -81,8 +84,9 @@ public class WebCrawler : IWebCrawler
                 // Add to results
                 _results.Add(result);
 
-                _logger.LogInformation("Processed URL {CurrentCount}: {Url}, Status: {StatusCode}, Depth: {Depth}",
-                    _results.Count, result.Url, result.StatusCode, urlWithDepth.Depth);
+                // Log URL details at DEBUG level instead of INFO
+                _logger.LogDebug("Processed URL {CurrentCount}: {Url}, Status: {StatusCode}, Depth: {Depth}, ResponseTime: {ResponseTime}ms",
+                    _results.Count, result.Url, result.StatusCode, urlWithDepth.Depth, result.ResponseTimeMs);
 
                 // Update statistics
                 UpdateStatistics(result);
@@ -102,6 +106,9 @@ public class WebCrawler : IWebCrawler
             {
                 _logger.LogInformation("Crawl completed, processed {Count} URLs", _results.Count);
             }
+
+            // Calculate percentile statistics at the end of the crawl
+            CalculatePercentileStatistics();
         }
         catch (Exception ex)
         {
@@ -177,6 +184,7 @@ public class WebCrawler : IWebCrawler
 
         try
         {
+            int linksAddedCount = 0;
             var links = _htmlParser.ExtractLinks(content, parentUrlWithDepth.Url);
 
             foreach (var link in links)
@@ -196,7 +204,14 @@ public class WebCrawler : IWebCrawler
 
                 // Enqueue the link with incremented depth
                 _crawlQueue.Enqueue(link, parentUrlWithDepth.Depth + 1);
+                linksAddedCount++;
                 _logger.LogDebug("Enqueued URL: {Url} at depth {Depth}", link, parentUrlWithDepth.Depth + 1);
+            }
+
+            if (linksAddedCount > 0)
+            {
+                _logger.LogDebug("Added {Count} new URLs to the queue from {ParentUrl}", 
+                    linksAddedCount, parentUrlWithDepth.Url);
             }
         }
         catch (Exception ex)
@@ -215,6 +230,43 @@ public class WebCrawler : IWebCrawler
         _statistics.VisitedCount++;
         _statistics.TotalResponseTimeMs += result.ResponseTimeMs;
 
+        // Update min/max response times
+        if (result.ResponseTimeMs < _statistics.MinResponseTimeMs)
+        {
+            _statistics.MinResponseTimeMs = result.ResponseTimeMs;
+        }
+
+        if (result.ResponseTimeMs > _statistics.MaxResponseTimeMs)
+        {
+            _statistics.MaxResponseTimeMs = result.ResponseTimeMs;
+        }
+
+        // Add to response time list for percentile calculations
+        _statistics.AllResponseTimes.Add(result.ResponseTimeMs);
+
+        // Update response time distribution
+        if (result.ResponseTimeMs < 100)
+        {
+            _statistics.ResponsesUnder100ms++;
+        }
+        else if (result.ResponseTimeMs < 500)
+        {
+            _statistics.ResponsesBetween100msAnd500ms++;
+        }
+        else if (result.ResponseTimeMs < 1000)
+        {
+            _statistics.ResponsesBetween500msAnd1s++;
+        }
+        else if (result.ResponseTimeMs < 3000)
+        {
+            _statistics.ResponsesBetween1sAnd3s++;
+        }
+        else
+        {
+            _statistics.ResponsesOver3s++;
+        }
+
+        // Update status code counts
         if (result.StatusCode >= 200 && result.StatusCode < 300)
         {
             _statistics.SuccessCount++;
@@ -238,6 +290,63 @@ public class WebCrawler : IWebCrawler
     }
 
     /// <summary>
+    /// Calculates percentile statistics from the collected response times
+    /// </summary>
+    private void CalculatePercentileStatistics()
+    {
+        if (_statistics.AllResponseTimes.Count == 0)
+        {
+            return;
+        }
+
+        // Sort the response times for percentile calculations
+        var sortedResponseTimes = _statistics.AllResponseTimes.OrderBy(t => t).ToList();
+
+        // Calculate median (50th percentile)
+        _statistics.MedianResponseTimeMs = CalculatePercentile(sortedResponseTimes, 50);
+
+        // Calculate 90th percentile
+        _statistics.P90ResponseTimeMs = CalculatePercentile(sortedResponseTimes, 90);
+
+        // Calculate 95th percentile
+        _statistics.P95ResponseTimeMs = CalculatePercentile(sortedResponseTimes, 95);
+
+        // Calculate 99th percentile
+        _statistics.P99ResponseTimeMs = CalculatePercentile(sortedResponseTimes, 99);
+    }
+
+    /// <summary>
+    /// Calculates a percentile value from a sorted list
+    /// </summary>
+    /// <param name="sortedValues">A sorted list of values</param>
+    /// <param name="percentile">The percentile to calculate (0-100)</param>
+    /// <returns>The percentile value</returns>
+    private long CalculatePercentile(List<long> sortedValues, int percentile)
+    {
+        if (sortedValues.Count == 0)
+        {
+            return 0;
+        }
+
+        if (sortedValues.Count == 1)
+        {
+            return sortedValues[0];
+        }
+
+        var rank = (percentile / 100.0) * (sortedValues.Count - 1);
+        var lowerIndex = (int)Math.Floor(rank);
+        var upperIndex = (int)Math.Ceiling(rank);
+
+        if (lowerIndex == upperIndex)
+        {
+            return sortedValues[lowerIndex];
+        }
+
+        var weight = rank - lowerIndex;
+        return (long)(sortedValues[lowerIndex] * (1 - weight) + sortedValues[upperIndex] * weight);
+    }
+
+    /// <summary>
     /// Resets the statistics to their default values
     /// </summary>
     private void ResetStatistics()
@@ -250,6 +359,18 @@ public class WebCrawler : IWebCrawler
         _statistics.OtherErrorCount = 0;
         _statistics.TotalTimeMs = 0;
         _statistics.TotalResponseTimeMs = 0;
+        _statistics.MinResponseTimeMs = long.MaxValue;
+        _statistics.MaxResponseTimeMs = 0;
+        _statistics.MedianResponseTimeMs = 0;
+        _statistics.P90ResponseTimeMs = 0;
+        _statistics.P95ResponseTimeMs = 0;
+        _statistics.P99ResponseTimeMs = 0;
+        _statistics.ResponsesUnder100ms = 0;
+        _statistics.ResponsesBetween100msAnd500ms = 0;
+        _statistics.ResponsesBetween500msAnd1s = 0;
+        _statistics.ResponsesBetween1sAnd3s = 0;
+        _statistics.ResponsesOver3s = 0;
+        _statistics.AllResponseTimes.Clear();
     }
 
     /// <summary>
@@ -258,18 +379,19 @@ public class WebCrawler : IWebCrawler
     private void LogProgress()
     {
         var currentStats = GetStatistics();
-
-        _logger.LogInformation(
-            "Crawl progress: Visited={VisitedCount}, Success={SuccessCount}, Redirect={RedirectCount}, " +
-            "ClientError={ClientErrorCount}, ServerError={ServerErrorCount}, OtherError={OtherErrorCount}, " +
+        var elapsedSeconds = currentStats.TotalTimeMs / 1000.0;
+        var urlsPerSecond = elapsedSeconds > 0 ? currentStats.VisitedCount / elapsedSeconds : 0;
+        
+        _logger.LogDebug(
+            "Crawl progress: Processed={VisitedCount} URLs, Queue={QueueCount} URLs, " +
+            "Rate={Rate:F2} URLs/sec, Success={SuccessCount}, Non-Success={NonSuccessCount}, " +
             "AvgResponseTime={AvgResponseTime:F2}ms, TotalTime={TotalTime:F2}s",
             currentStats.VisitedCount,
+            _crawlQueue.Count,
+            urlsPerSecond,
             currentStats.SuccessCount,
-            currentStats.RedirectCount,
-            currentStats.ClientErrorCount,
-            currentStats.ServerErrorCount,
-            currentStats.OtherErrorCount,
+            currentStats.VisitedCount - currentStats.SuccessCount,
             currentStats.AverageResponseTimeMs,
-            currentStats.TotalTimeMs / 1000.0);
+            elapsedSeconds);
     }
 }

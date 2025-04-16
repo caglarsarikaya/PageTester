@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using WebCrawler.Interfaces;
 using WebCrawler.Models;
 
 namespace WebCrawler.Services;
@@ -113,6 +114,66 @@ public class ResultExporter
 
         File.WriteAllText(filePath, csv.ToString());
 
+        return filePath;
+    }
+
+    /// <summary>
+    /// Exports response time statistics to a CSV file
+    /// </summary>
+    /// <param name="stats">The crawl statistics to export</param>
+    /// <param name="rootUrl">The root URL that was crawled</param>
+    /// <returns>The path to the exported file</returns>
+    public string ExportResponseTimeStatisticsToCsv(CrawlStatistics stats, string rootUrl)
+    {
+        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        var safeRootUrl = GetSafeFilename(rootUrl);
+        var filename = $"{safeRootUrl}_{timestamp}_response_times.csv";
+        var filePath = Path.Combine(_resultsDirectory, filename);
+        
+        var csv = new StringBuilder();
+        
+        // Add summary statistics
+        csv.AppendLine("Statistic,Value,Unit");
+        csv.AppendLine($"Total URLs Processed,{stats.VisitedCount},count");
+        csv.AppendLine($"Minimum Response Time,{stats.MinResponseTimeMs},ms");
+        csv.AppendLine($"Maximum Response Time,{stats.MaxResponseTimeMs},ms");
+        csv.AppendLine($"Average Response Time,{stats.AverageResponseTimeMs:F2},ms");
+        csv.AppendLine($"Median Response Time (P50),{stats.MedianResponseTimeMs},ms");
+        csv.AppendLine($"90th Percentile (P90),{stats.P90ResponseTimeMs},ms");
+        csv.AppendLine($"95th Percentile (P95),{stats.P95ResponseTimeMs},ms");
+        csv.AppendLine($"99th Percentile (P99),{stats.P99ResponseTimeMs},ms");
+        
+        // Add distribution data
+        csv.AppendLine();
+        csv.AppendLine("Response Time Range,Count,Percentage");
+        
+        double percentUnder100ms = stats.VisitedCount > 0 ? (double)stats.ResponsesUnder100ms / stats.VisitedCount * 100 : 0;
+        double percent100to500ms = stats.VisitedCount > 0 ? (double)stats.ResponsesBetween100msAnd500ms / stats.VisitedCount * 100 : 0;
+        double percent500to1s = stats.VisitedCount > 0 ? (double)stats.ResponsesBetween500msAnd1s / stats.VisitedCount * 100 : 0;
+        double percent1to3s = stats.VisitedCount > 0 ? (double)stats.ResponsesBetween1sAnd3s / stats.VisitedCount * 100 : 0;
+        double percentOver3s = stats.VisitedCount > 0 ? (double)stats.ResponsesOver3s / stats.VisitedCount * 100 : 0;
+        
+        csv.AppendLine($"Under 100ms,{stats.ResponsesUnder100ms},{percentUnder100ms:F2}%");
+        csv.AppendLine($"100ms-500ms,{stats.ResponsesBetween100msAnd500ms},{percent100to500ms:F2}%");
+        csv.AppendLine($"500ms-1s,{stats.ResponsesBetween500msAnd1s},{percent500to1s:F2}%");
+        csv.AppendLine($"1s-3s,{stats.ResponsesBetween1sAnd3s},{percent1to3s:F2}%");
+        csv.AppendLine($"Over 3s,{stats.ResponsesOver3s},{percentOver3s:F2}%");
+        
+        // Add raw response times
+        if (stats.AllResponseTimes.Count > 0)
+        {
+            csv.AppendLine();
+            csv.AppendLine("ResponseTime (ms)");
+            
+            // Sort response times from slowest to fastest for easier analysis
+            foreach (var responseTime in stats.AllResponseTimes.OrderByDescending(t => t))
+            {
+                csv.AppendLine($"{responseTime}");
+            }
+        }
+        
+        File.WriteAllText(filePath, csv.ToString());
+        
         return filePath;
     }
 

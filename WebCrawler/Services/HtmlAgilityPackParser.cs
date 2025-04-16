@@ -38,7 +38,7 @@ public class HtmlAgilityPackParser : IHtmlParser
 
             if (anchorNodes == null)
             {
-                _logger.LogInformation("No links found in the HTML content");
+                _logger.LogDebug("No links found in the HTML content");
                 return Enumerable.Empty<string>();
             }
 
@@ -86,7 +86,7 @@ public class HtmlAgilityPackParser : IHtmlParser
                 }
             }
 
-            _logger.LogInformation("Extracted {LinkCount} links from HTML content", links.Count);
+            _logger.LogDebug("Extracted {LinkCount} links from HTML content", links.Count);
             return links;
         }
         catch (Exception ex)
