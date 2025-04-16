@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using WebCrawler.Models;
+using WebCrawler.Services;
 using WebCrawler.Utilities;
 
 // Build configuration
@@ -32,6 +33,9 @@ services.AddSingleton(crawlSettings);
 services.AddSingleton<VisitedUrls>();
 services.AddSingleton<CrawlQueue>();
 
+// Register services
+services.AddSingleton<IUrlFetcher, HttpUrlFetcher>();
+
 // Build service provider
 var serviceProvider = services.BuildServiceProvider();
 
@@ -45,6 +49,10 @@ var visitedUrls = serviceProvider.GetRequiredService<VisitedUrls>();
 var crawlQueue = serviceProvider.GetRequiredService<CrawlQueue>();
 logger.LogInformation($"Created VisitedUrls tracker with {visitedUrls.Count} entries");
 logger.LogInformation($"Created CrawlQueue with {crawlQueue.Count} entries");
+
+// Test URL fetcher
+var urlFetcher = serviceProvider.GetRequiredService<IUrlFetcher>();
+logger.LogInformation("URL fetcher service registered successfully");
 
 // Keep the console window open
 Console.WriteLine("Press any key to exit...");
