@@ -1,6 +1,7 @@
-using System.Web;
 using HtmlAgilityPack;
 using Microsoft.Extensions.Logging;
+using System.Web;
+using WebCrawler.Interfaces;
 
 namespace WebCrawler.Services;
 
@@ -10,12 +11,12 @@ namespace WebCrawler.Services;
 public class HtmlAgilityPackParser : IHtmlParser
 {
     private readonly ILogger<HtmlAgilityPackParser> _logger;
-    
+
     public HtmlAgilityPackParser(ILogger<HtmlAgilityPackParser> logger)
     {
         _logger = logger;
     }
-    
+
     /// <inheritdoc />
     public IEnumerable<string> ExtractLinks(string html, string baseUrl)
     {
@@ -24,38 +25,38 @@ public class HtmlAgilityPackParser : IHtmlParser
             _logger.LogWarning("Empty HTML content provided for parsing");
             return Enumerable.Empty<string>();
         }
-        
+
         var links = new List<string>();
         var htmlDoc = new HtmlDocument();
-        
+
         try
         {
             htmlDoc.LoadHtml(html);
-            
+
             // Get all anchor tags
             var anchorNodes = htmlDoc.DocumentNode.SelectNodes("//a[@href]");
-            
+
             if (anchorNodes == null)
             {
                 _logger.LogInformation("No links found in the HTML content");
                 return Enumerable.Empty<string>();
             }
-            
+
             // Process each anchor tag to extract and normalize URLs
             foreach (var anchorNode in anchorNodes)
             {
                 var href = anchorNode.GetAttributeValue("href", string.Empty);
-                
+
                 if (string.IsNullOrWhiteSpace(href))
                 {
                     continue;
                 }
-                
+
                 // Decode HTML entities if present
                 href = HttpUtility.HtmlDecode(href);
-                
+
                 // Skip fragment-only URLs, javascript:, mailto:, tel:, etc.
-                if (href.StartsWith("#") || 
+                if (href.StartsWith("#") ||
                     href.StartsWith("javascript:", StringComparison.OrdinalIgnoreCase) ||
                     href.StartsWith("mailto:", StringComparison.OrdinalIgnoreCase) ||
                     href.StartsWith("tel:", StringComparison.OrdinalIgnoreCase) ||
@@ -63,12 +64,12 @@ public class HtmlAgilityPackParser : IHtmlParser
                 {
                     continue;
                 }
-                
+
                 try
                 {
                     // Normalize the URL (convert relative to absolute)
                     var absoluteUrl = NormalizeUrl(href, baseUrl);
-                    
+
                     if (!string.IsNullOrEmpty(absoluteUrl))
                     {
                         // Only add HTTP/HTTPS URLs
@@ -84,7 +85,7 @@ public class HtmlAgilityPackParser : IHtmlParser
                     _logger.LogWarning(ex, "Error processing URL '{Href}' from base URL '{BaseUrl}'", href, baseUrl);
                 }
             }
-            
+
             _logger.LogInformation("Extracted {LinkCount} links from HTML content", links.Count);
             return links;
         }
@@ -94,7 +95,7 @@ public class HtmlAgilityPackParser : IHtmlParser
             return Enumerable.Empty<string>();
         }
     }
-    
+
     /// <inheritdoc />
     public bool IsRelatedToRootUrl(string url, string rootUrl)
     {
@@ -102,34 +103,34 @@ public class HtmlAgilityPackParser : IHtmlParser
         {
             return false;
         }
-        
+
         try
         {
             var urlUri = new Uri(url);
             var rootUri = new Uri(rootUrl);
-            
+
             // Check if both are on the same host
             var urlHost = urlUri.Host;
             var rootHost = rootUri.Host;
-            
+
             // Same exact host
             if (string.Equals(urlHost, rootHost, StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
-            
+
             // Check if URL is a subdomain of root
             if (urlHost.EndsWith("." + rootHost, StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
-            
+
             // Check if root is a subdomain of URL
             if (rootHost.EndsWith("." + urlHost, StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
-            
+
             return false;
         }
         catch (Exception ex)
@@ -138,7 +139,7 @@ public class HtmlAgilityPackParser : IHtmlParser
             return false;
         }
     }
-    
+
     /// <summary>
     /// Normalizes a URL by converting relative URLs to absolute
     /// </summary>
@@ -154,13 +155,13 @@ public class HtmlAgilityPackParser : IHtmlParser
             {
                 return absoluteUri.ToString();
             }
-            
+
             // It's a relative URL, combine with base URL
             if (Uri.TryCreate(new Uri(baseUrl), url, out var combinedUri))
             {
                 return combinedUri.ToString();
             }
-            
+
             // If we got here, we couldn't normalize the URL
             _logger.LogWarning("Could not normalize URL '{Url}' with base '{BaseUrl}'", url, baseUrl);
             return string.Empty;
@@ -171,4 +172,4 @@ public class HtmlAgilityPackParser : IHtmlParser
             return string.Empty;
         }
     }
-} 
+}

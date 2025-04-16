@@ -9,4 +9,4 @@ public class CrawlSettings
     /// Maximum depth to crawl from the root URL
     /// </summary>
     public int Depth { get; set; } = 1;
-} 
+}

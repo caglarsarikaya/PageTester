@@ -1,6 +1,6 @@
 using WebCrawler.Models;
 
-namespace WebCrawler.Services;
+namespace WebCrawler.Interfaces;
 
 /// <summary>
 /// Interface for URL fetching functionality
@@ -14,7 +14,7 @@ public interface IUrlFetcher
     /// <param name="cancellationToken">Optional cancellation token</param>
     /// <returns>CrawlResult containing status code and response time</returns>
     Task<CrawlResult> FetchAsync(string url, CancellationToken cancellationToken = default);
-    
+
     /// <summary>
     /// Fetches the content from a URL and returns the HTML content
     /// </summary>
@@ -22,4 +22,4 @@ public interface IUrlFetcher
     /// <param name="cancellationToken">Optional cancellation token</param>
     /// <returns>CrawlResult containing status code, response time, and HTML content</returns>
     Task<(CrawlResult Result, string? Content)> FetchWithContentAsync(string url, CancellationToken cancellationToken = default);
-} 
+}

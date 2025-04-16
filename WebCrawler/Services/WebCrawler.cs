@@ -1,6 +1,7 @@
+using Microsoft.Extensions.Logging;
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using Microsoft.Extensions.Logging;
+using WebCrawler.Interfaces;
 using WebCrawler.Models;
 using WebCrawler.Utilities;
 
@@ -20,7 +21,7 @@ public class WebCrawler : IWebCrawler
     private readonly ConcurrentBag<CrawlResult> _results = new();
     private readonly CrawlStatistics _statistics = new();
     private readonly Stopwatch _crawlStopwatch = new();
-    
+
     public WebCrawler(
         IUrlFetcher urlFetcher,
         IHtmlParser htmlParser,
@@ -36,21 +37,21 @@ public class WebCrawler : IWebCrawler
         _visitedUrls = visitedUrls;
         _crawlQueue = crawlQueue;
     }
-    
+
     /// <inheritdoc />
     public async Task<IReadOnlyCollection<CrawlResult>> CrawlAsync(string rootUrl, CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Starting crawl from root URL: {RootUrl} with max depth: {MaxDepth}", rootUrl, _settings.Depth);
-        
+
         // Clear previous results if any
         _results.Clear();
         ResetStatistics();
-        
+
         // Add the root URL to the queue
         _crawlQueue.Enqueue(rootUrl, 0);
-        
+
         _crawlStopwatch.Start();
-        
+
         try
         {
             // Process the queue until it's empty
@@ -58,41 +59,41 @@ public class WebCrawler : IWebCrawler
             {
                 // Get next URL from queue
                 var urlWithDepth = _crawlQueue.Dequeue();
-                
+
                 if (urlWithDepth == null)
                 {
                     continue;
                 }
-                
+
                 // Skip if already visited
                 if (_visitedUrls.Contains(urlWithDepth.Url))
                 {
                     _logger.LogDebug("Skipping already visited URL: {Url}", urlWithDepth.Url);
                     continue;
                 }
-                
+
                 // Mark as visited
                 _visitedUrls.TryAdd(urlWithDepth.Url);
-                
+
                 // Fetch the URL
                 var result = await ProcessUrlAsync(urlWithDepth, cancellationToken);
-                
+
                 // Add to results
                 _results.Add(result);
-                
+
                 _logger.LogInformation("Processed URL {CurrentCount}: {Url}, Status: {StatusCode}, Depth: {Depth}",
                     _results.Count, result.Url, result.StatusCode, urlWithDepth.Depth);
-                
+
                 // Update statistics
                 UpdateStatistics(result);
-                
+
                 // Log progress periodically
                 if (_results.Count % 10 == 0)
                 {
                     LogProgress();
                 }
             }
-            
+
             if (cancellationToken.IsCancellationRequested)
             {
                 _logger.LogWarning("Crawl was cancelled after processing {Count} URLs", _results.Count);
@@ -110,27 +111,27 @@ public class WebCrawler : IWebCrawler
         {
             _crawlStopwatch.Stop();
             _statistics.TotalTimeMs = _crawlStopwatch.ElapsedMilliseconds;
-            
+
             LogProgress();
         }
-        
+
         return _results.ToArray();
     }
-    
+
     /// <inheritdoc />
     public CrawlStatistics GetStatistics()
     {
         _statistics.TotalTimeMs = _crawlStopwatch.IsRunning ? _crawlStopwatch.ElapsedMilliseconds : _statistics.TotalTimeMs;
         return _statistics;
     }
-    
+
     /// <summary>
     /// Processes a URL: fetches it and, if successful and within depth limit, extracts and enqueues links
     /// </summary>
     private async Task<CrawlResult> ProcessUrlAsync(UrlWithDepth urlWithDepth, CancellationToken cancellationToken)
     {
         CrawlResult result;
-        
+
         try
         {
             // If we're at max depth, just fetch the headers to check status
@@ -139,11 +140,11 @@ public class WebCrawler : IWebCrawler
                 result = await _urlFetcher.FetchAsync(urlWithDepth.Url, cancellationToken);
                 return result;
             }
-            
+
             // Otherwise fetch the content too
             var (fetchResult, content) = await _urlFetcher.FetchWithContentAsync(urlWithDepth.Url, cancellationToken);
             result = fetchResult;
-            
+
             // If successful and we have content, extract links
             if (result.IsSuccess && !string.IsNullOrWhiteSpace(content))
             {
@@ -160,10 +161,10 @@ public class WebCrawler : IWebCrawler
                 ErrorMessage = ex.Message
             };
         }
-        
+
         return result;
     }
-    
+
     /// <summary>
     /// Extracts links from content and enqueues them if they're related to the root URL
     /// </summary>
@@ -173,11 +174,11 @@ public class WebCrawler : IWebCrawler
         {
             return Task.CompletedTask;
         }
-        
+
         try
         {
             var links = _htmlParser.ExtractLinks(content, parentUrlWithDepth.Url);
-            
+
             foreach (var link in links)
             {
                 // Skip if already visited or queued
@@ -185,14 +186,14 @@ public class WebCrawler : IWebCrawler
                 {
                     continue;
                 }
-                
+
                 // Check if the link is related to the root URL
                 if (!_htmlParser.IsRelatedToRootUrl(link, parentUrlWithDepth.Url))
                 {
                     _logger.LogDebug("Skipping external URL: {Url}", link);
                     continue;
                 }
-                
+
                 // Enqueue the link with incremented depth
                 _crawlQueue.Enqueue(link, parentUrlWithDepth.Depth + 1);
                 _logger.LogDebug("Enqueued URL: {Url} at depth {Depth}", link, parentUrlWithDepth.Depth + 1);
@@ -202,10 +203,10 @@ public class WebCrawler : IWebCrawler
         {
             _logger.LogError(ex, "Error extracting links from URL: {Url}", parentUrlWithDepth.Url);
         }
-        
+
         return Task.CompletedTask;
     }
-    
+
     /// <summary>
     /// Updates statistics based on a crawl result
     /// </summary>
@@ -213,7 +214,7 @@ public class WebCrawler : IWebCrawler
     {
         _statistics.VisitedCount++;
         _statistics.TotalResponseTimeMs += result.ResponseTimeMs;
-        
+
         if (result.StatusCode >= 200 && result.StatusCode < 300)
         {
             _statistics.SuccessCount++;
@@ -235,7 +236,7 @@ public class WebCrawler : IWebCrawler
             _statistics.OtherErrorCount++;
         }
     }
-    
+
     /// <summary>
     /// Resets the statistics to their default values
     /// </summary>
@@ -250,14 +251,14 @@ public class WebCrawler : IWebCrawler
         _statistics.TotalTimeMs = 0;
         _statistics.TotalResponseTimeMs = 0;
     }
-    
+
     /// <summary>
     /// Logs the current progress of the crawl
     /// </summary>
     private void LogProgress()
     {
         var currentStats = GetStatistics();
-        
+
         _logger.LogInformation(
             "Crawl progress: Visited={VisitedCount}, Success={SuccessCount}, Redirect={RedirectCount}, " +
             "ClientError={ClientErrorCount}, ServerError={ServerErrorCount}, OtherError={OtherErrorCount}, " +
@@ -271,4 +272,4 @@ public class WebCrawler : IWebCrawler
             currentStats.AverageResponseTimeMs,
             currentStats.TotalTimeMs / 1000.0);
     }
-} 
+}

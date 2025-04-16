@@ -76,7 +76,7 @@
 ### **Task 8: Nice-to-Haves / Polish**
 **8.1** Add Stopwatch to show crawl duration  
 **8.2** Add cancellation token support  
-**8.3** Export results to a file (CSV or JSON)
+**8.3** Export results to a file (CSV or JSON) to the same place with codes there is a folder named by Results
 
 ---
 

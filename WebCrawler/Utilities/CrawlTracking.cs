@@ -9,7 +9,7 @@ namespace WebCrawler.Utilities;
 public class VisitedUrls
 {
     private readonly ConcurrentDictionary<string, bool> _urls = new();
-    
+
     /// <summary>
     /// Tries to add a URL to the visited collection
     /// </summary>
@@ -19,7 +19,7 @@ public class VisitedUrls
     {
         return _urls.TryAdd(url, true);
     }
-    
+
     /// <summary>
     /// Checks if a URL has been visited
     /// </summary>
@@ -29,7 +29,7 @@ public class VisitedUrls
     {
         return _urls.ContainsKey(url);
     }
-    
+
     /// <summary>
     /// Gets the count of visited URLs
     /// </summary>
@@ -43,7 +43,7 @@ public class CrawlQueue
 {
     private readonly Queue<UrlWithDepth> _queue = new();
     private readonly object _lockObject = new();
-    
+
     /// <summary>
     /// Adds a URL to the crawl queue
     /// </summary>
@@ -56,7 +56,7 @@ public class CrawlQueue
             _queue.Enqueue(new UrlWithDepth(url, depth));
         }
     }
-    
+
     /// <summary>
     /// Adds a URL with depth to the crawl queue
     /// </summary>
@@ -68,7 +68,7 @@ public class CrawlQueue
             _queue.Enqueue(urlWithDepth);
         }
     }
-    
+
     /// <summary>
     /// Gets the next URL to crawl, or null if the queue is empty
     /// </summary>
@@ -80,7 +80,7 @@ public class CrawlQueue
             return _queue.Count > 0 ? _queue.Dequeue() : null;
         }
     }
-    
+
     /// <summary>
     /// Gets the number of URLs in the queue
     /// </summary>
@@ -94,9 +94,9 @@ public class CrawlQueue
             }
         }
     }
-    
+
     /// <summary>
     /// Checks if the queue is empty
     /// </summary>
     public bool IsEmpty => Count == 0;
-} 
+}

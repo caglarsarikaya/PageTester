@@ -20,7 +20,7 @@ public class ResultAggregator
             .OrderBy(url => url)      // Sort alphabetically for better readability
             .ToList();
     }
-    
+
     /// <summary>
     /// Gets URLs with specific status code ranges
     /// </summary>
@@ -29,8 +29,8 @@ public class ResultAggregator
     /// <param name="maxStatusCode">The maximum status code (exclusive)</param>
     /// <returns>A collection of results with status codes in the specified range</returns>
     public IReadOnlyList<CrawlResult> GetUrlsByStatusCodeRange(
-        IEnumerable<CrawlResult> results, 
-        int minStatusCode, 
+        IEnumerable<CrawlResult> results,
+        int minStatusCode,
         int maxStatusCode)
     {
         return results
@@ -39,7 +39,7 @@ public class ResultAggregator
             .ThenBy(r => r.Url)
             .ToList();
     }
-    
+
     /// <summary>
     /// Groups results by status code
     /// </summary>
@@ -54,4 +54,4 @@ public class ResultAggregator
                 g => g.Select(r => r.Url).ToList()
             );
     }
-} 
+}
