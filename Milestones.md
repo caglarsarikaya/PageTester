@@ -55,7 +55,7 @@
 ### **Task 6: Crawl Logic**
 **6.1** Create `WebCrawler` class:
 - Accepts root URL, depth, fetcher, parser, and logger
-- Adds root to queue
+- Adds root to queue, I will provide the root url at command window after app starts
 - While queue not empty:
   - Pop URL
   - If not visited:

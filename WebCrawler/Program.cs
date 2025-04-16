@@ -36,6 +36,7 @@ services.AddSingleton<CrawlQueue>();
 // Register services
 services.AddSingleton<IUrlFetcher, HttpUrlFetcher>();
 services.AddSingleton<IHtmlParser, HtmlAgilityPackParser>();
+services.AddSingleton<IWebCrawler, WebCrawler.Services.WebCrawler>();
 
 // Build service provider
 var serviceProvider = services.BuildServiceProvider();
@@ -45,19 +46,67 @@ var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
 logger.LogInformation("Application started");
 logger.LogInformation($"Configured crawl depth: {crawlSettings.Depth}");
 
-// Get utilities to demonstrate they're registered
-var visitedUrls = serviceProvider.GetRequiredService<VisitedUrls>();
-var crawlQueue = serviceProvider.GetRequiredService<CrawlQueue>();
-logger.LogInformation($"Created VisitedUrls tracker with {visitedUrls.Count} entries");
-logger.LogInformation($"Created CrawlQueue with {crawlQueue.Count} entries");
+// Get the web crawler
+var webCrawler = serviceProvider.GetRequiredService<IWebCrawler>();
 
-// Get services to demonstrate they're registered
-var urlFetcher = serviceProvider.GetRequiredService<IUrlFetcher>();
-logger.LogInformation("URL fetcher service registered successfully");
+// Prompt for URL
+Console.WriteLine("Please enter the URL to crawl:");
+var rootUrl = Console.ReadLine();
 
-var htmlParser = serviceProvider.GetRequiredService<IHtmlParser>();
-logger.LogInformation("HTML parser service registered successfully");
+if (string.IsNullOrWhiteSpace(rootUrl))
+{
+    logger.LogError("No URL provided. Exiting.");
+    return;
+}
+
+// Make sure URL has a scheme
+if (!rootUrl.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && 
+    !rootUrl.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+{
+    rootUrl = "https://" + rootUrl;
+    logger.LogInformation("Added https:// prefix to URL: {Url}", rootUrl);
+}
+
+// Create cancellation token source
+using var cts = new CancellationTokenSource();
+
+// Handle cancellation
+Console.CancelKeyPress += (sender, e) =>
+{
+    e.Cancel = true; // Prevent the process from terminating
+    logger.LogWarning("Cancellation requested. Stopping crawler...");
+    cts.Cancel();
+};
+
+logger.LogInformation("Starting crawl of {Url}. Press Ctrl+C to cancel.", rootUrl);
+Console.WriteLine();
+
+try
+{
+    // Start crawling
+    var results = await webCrawler.CrawlAsync(rootUrl, cts.Token);
+    
+    // Get statistics
+    var stats = webCrawler.GetStatistics();
+    
+    // Display results
+    Console.WriteLine();
+    Console.WriteLine("Crawl completed!");
+    Console.WriteLine($"Total URLs processed: {stats.VisitedCount}");
+    Console.WriteLine($"Successful (2xx): {stats.SuccessCount}");
+    Console.WriteLine($"Redirects (3xx): {stats.RedirectCount}");
+    Console.WriteLine($"Client errors (4xx): {stats.ClientErrorCount}");
+    Console.WriteLine($"Server errors (5xx): {stats.ServerErrorCount}");
+    Console.WriteLine($"Other errors: {stats.OtherErrorCount}");
+    Console.WriteLine($"Average response time: {stats.AverageResponseTimeMs:F2} ms");
+    Console.WriteLine($"Total crawl time: {stats.TotalTimeMs / 1000.0:F2} seconds");
+}
+catch (Exception ex)
+{
+    logger.LogError(ex, "Error during crawl");
+}
 
 // Keep the console window open
+Console.WriteLine();
 Console.WriteLine("Press any key to exit...");
 Console.ReadKey();
