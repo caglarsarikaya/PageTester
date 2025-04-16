@@ -54,7 +54,7 @@ public class WebCrawler : IWebCrawler
 
         try
         {
-            _logger.LogDebug("Queue status: {QueueCount} URLs queued, {VisitedCount} URLs processed", 
+            _logger.LogInformation("Queue status: {QueueCount} URLs queued, {VisitedCount} URLs processed", 
                 _crawlQueue.Count, _visitedUrls.Count);
 
             // Process the queue until it's empty
@@ -382,16 +382,43 @@ public class WebCrawler : IWebCrawler
         var elapsedSeconds = currentStats.TotalTimeMs / 1000.0;
         var urlsPerSecond = elapsedSeconds > 0 ? currentStats.VisitedCount / elapsedSeconds : 0;
         
-        _logger.LogDebug(
+        // Calculate estimated time to completion
+        var remainingUrls = _crawlQueue.Count;
+        var estimatedSecondsRemaining = urlsPerSecond > 0 ? remainingUrls / urlsPerSecond : 0;
+        var estimatedTimeMessage = urlsPerSecond > 0 
+            ? $", Est. completion in: {FormatTimeSpan(TimeSpan.FromSeconds(estimatedSecondsRemaining))}"
+            : "";
+        
+        _logger.LogInformation(
             "Crawl progress: Processed={VisitedCount} URLs, Queue={QueueCount} URLs, " +
             "Rate={Rate:F2} URLs/sec, Success={SuccessCount}, Non-Success={NonSuccessCount}, " +
-            "AvgResponseTime={AvgResponseTime:F2}ms, TotalTime={TotalTime:F2}s",
+            "AvgResponseTime={AvgResponseTime:F2}ms, TotalTime={TotalTime:F2}s{EstTimeRemaining}",
             currentStats.VisitedCount,
-            _crawlQueue.Count,
+            remainingUrls,
             urlsPerSecond,
             currentStats.SuccessCount,
             currentStats.VisitedCount - currentStats.SuccessCount,
             currentStats.AverageResponseTimeMs,
-            elapsedSeconds);
+            elapsedSeconds,
+            estimatedTimeMessage);
+    }
+    
+    /// <summary>
+    /// Formats a TimeSpan into a readable string
+    /// </summary>
+    private string FormatTimeSpan(TimeSpan timeSpan)
+    {
+        if (timeSpan.TotalHours >= 1)
+        {
+            return $"{timeSpan.TotalHours:F1} hours";
+        }
+        else if (timeSpan.TotalMinutes >= 1)
+        {
+            return $"{timeSpan.TotalMinutes:F1} minutes";
+        }
+        else
+        {
+            return $"{timeSpan.TotalSeconds:F0} seconds";
+        }
     }
 }
