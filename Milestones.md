@@ -41,8 +41,7 @@
 ### **Task 4: URL Fetcher**
 **4.1** Create `IUrlFetcher` interface  
 **4.2** Implement `HttpUrlFetcher` using `HttpClient`  
-- Add retry logic (maybe with Polly if needed later)
-- Return status code, and log non-200 responses
+- Return status code, and log all responses also we need the response times
 
 ---
 

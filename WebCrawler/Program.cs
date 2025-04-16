@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using WebCrawler.Models;
+using WebCrawler.Utilities;
 
 // Build configuration
 var configuration = new ConfigurationBuilder()
@@ -27,6 +28,10 @@ var crawlSettings = new CrawlSettings();
 configuration.GetSection("CrawlSettings").Bind(crawlSettings);
 services.AddSingleton(crawlSettings);
 
+// Register core utilities
+services.AddSingleton<VisitedUrls>();
+services.AddSingleton<CrawlQueue>();
+
 // Build service provider
 var serviceProvider = services.BuildServiceProvider();
 
@@ -34,6 +39,12 @@ var serviceProvider = services.BuildServiceProvider();
 var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
 logger.LogInformation("Application started");
 logger.LogInformation($"Configured crawl depth: {crawlSettings.Depth}");
+
+// Get utilities to demonstrate they're registered
+var visitedUrls = serviceProvider.GetRequiredService<VisitedUrls>();
+var crawlQueue = serviceProvider.GetRequiredService<CrawlQueue>();
+logger.LogInformation($"Created VisitedUrls tracker with {visitedUrls.Count} entries");
+logger.LogInformation($"Created CrawlQueue with {crawlQueue.Count} entries");
 
 // Keep the console window open
 Console.WriteLine("Press any key to exit...");
