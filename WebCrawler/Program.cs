@@ -35,6 +35,7 @@ services.AddSingleton<CrawlQueue>();
 
 // Register services
 services.AddSingleton<IUrlFetcher, HttpUrlFetcher>();
+services.AddSingleton<IHtmlParser, HtmlAgilityPackParser>();
 
 // Build service provider
 var serviceProvider = services.BuildServiceProvider();
@@ -50,9 +51,12 @@ var crawlQueue = serviceProvider.GetRequiredService<CrawlQueue>();
 logger.LogInformation($"Created VisitedUrls tracker with {visitedUrls.Count} entries");
 logger.LogInformation($"Created CrawlQueue with {crawlQueue.Count} entries");
 
-// Test URL fetcher
+// Get services to demonstrate they're registered
 var urlFetcher = serviceProvider.GetRequiredService<IUrlFetcher>();
 logger.LogInformation("URL fetcher service registered successfully");
+
+var htmlParser = serviceProvider.GetRequiredService<IHtmlParser>();
+logger.LogInformation("HTML parser service registered successfully");
 
 // Keep the console window open
 Console.WriteLine("Press any key to exit...");
