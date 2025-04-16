@@ -69,8 +69,7 @@
 
 ### **Task 7: Result Aggregation & Output**
 **7.1** After crawling, group results:
-- Group by HTTP status code
-- Print success and failures clearly in console
+- print only not 200 response results with just url no need the other information at console
 
 ---
 

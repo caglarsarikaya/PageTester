@@ -37,6 +37,7 @@ services.AddSingleton<CrawlQueue>();
 services.AddSingleton<IUrlFetcher, HttpUrlFetcher>();
 services.AddSingleton<IHtmlParser, HtmlAgilityPackParser>();
 services.AddSingleton<IWebCrawler, WebCrawler.Services.WebCrawler>();
+services.AddSingleton<ResultAggregator>();
 
 // Build service provider
 var serviceProvider = services.BuildServiceProvider();
@@ -46,8 +47,9 @@ var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
 logger.LogInformation("Application started");
 logger.LogInformation($"Configured crawl depth: {crawlSettings.Depth}");
 
-// Get the web crawler
+// Get the web crawler and result aggregator
 var webCrawler = serviceProvider.GetRequiredService<IWebCrawler>();
+var resultAggregator = serviceProvider.GetRequiredService<ResultAggregator>();
 
 // Prompt for URL
 Console.WriteLine("Please enter the URL to crawl:");
@@ -100,6 +102,25 @@ try
     Console.WriteLine($"Other errors: {stats.OtherErrorCount}");
     Console.WriteLine($"Average response time: {stats.AverageResponseTimeMs:F2} ms");
     Console.WriteLine($"Total crawl time: {stats.TotalTimeMs / 1000.0:F2} seconds");
+    
+    // Get and display non-successful URLs
+    var nonSuccessfulUrls = resultAggregator.GetNonSuccessfulUrls(results);
+    
+    if (nonSuccessfulUrls.Count > 0)
+    {
+        Console.WriteLine();
+        Console.WriteLine("Non-successful URLs (not 2xx):");
+        
+        foreach (var url in nonSuccessfulUrls)
+        {
+            Console.WriteLine(url);
+        }
+    }
+    else
+    {
+        Console.WriteLine();
+        Console.WriteLine("All URLs returned successful (2xx) responses.");
+    }
 }
 catch (Exception ex)
 {
