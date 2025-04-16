@@ -125,6 +125,5 @@ All test results are automatically exported to Excel with the following sheets:
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details. 
+https://www.youtube.com/shorts/lmRb-xfYtc8
+https://www.youtube.com/watch?v=2WWE4o4kJLM
