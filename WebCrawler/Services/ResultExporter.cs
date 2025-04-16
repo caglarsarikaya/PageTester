@@ -210,28 +210,6 @@ public class ResultExporter
         // Auto-fit columns
         resultsSheet.Columns().AdjustToContents();
         
-        // Create response times worksheet
-        if (stats.AllResponseTimes.Count > 0)
-        {
-            var responsesSheet = workbook.Worksheets.Add("Response Times");
-            
-            // Add header
-            responsesSheet.Cell("A1").Value = "Response Time (ms)";
-            responsesSheet.Cell("A1").Style.Font.Bold = true;
-            responsesSheet.Cell("A1").Style.Fill.BackgroundColor = XLColor.LightGray;
-            
-            // Add response times (sorted from slowest to fastest for easier analysis)
-            row = 2;
-            foreach (var responseTime in stats.AllResponseTimes.OrderByDescending(t => t))
-            {
-                responsesSheet.Cell(row, 1).Value = responseTime;
-                row++;
-            }
-            
-            // Auto-fit columns
-            responsesSheet.Columns().AdjustToContents();
-        }
-        
         // Create errors worksheet if there are any non-successful results
         var nonSuccessfulResults = results.Where(r => !r.IsSuccess).ToList();
         if (nonSuccessfulResults.Any())
