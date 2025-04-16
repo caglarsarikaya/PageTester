@@ -79,5 +79,3 @@
 **8.3** Export results to a file (CSV or JSON) to the same place with codes there is a folder named by Results
 
 ---
-
-Let me know if you want the Cursor rule file for this architecture, or sample implementations for any of these tasks.

@@ -1,9 +1,8 @@
-﻿
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WebCrawler", "WebCrawler\WebCrawler.csproj", "{CD14C953-730B-4111-919E-8B20EB29113C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PageTester", "PageTester\PageTester.csproj", "{CD14C953-730B-4111-919E-8B20EB29113C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
