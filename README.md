@@ -9,7 +9,7 @@ A powerful and efficient web page testing tool that analyzes website response ti
 - **Response Time Distribution**: See the distribution of response times across different buckets
 - **Error Detection**: Automatically identifies and reports any non-successful HTTP responses
 - **Excel Export**: Exports all results to Excel with multiple sheets for easy analysis
-- **Interactive Console UI**: Simple console interface for initiating tests and viewing results
+- **Interactive Console UI**: Simple console interface for initiating tests and viewing results 
 
 ## Requirements
 
