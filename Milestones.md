@@ -31,6 +31,7 @@
 - URL
 - Status Code
 - Error Message (if any)
+- response time
 
 **3.2** Create a thread-safe `VisitedUrls` HashSet or `ConcurrentDictionary`  
 **3.3** Implement a simple `Queue<UrlWithDepth>` structure to manage the crawl logic
