@@ -48,7 +48,7 @@ var serviceProvider = services.BuildServiceProvider();
 // Get logger
 var logger = serviceProvider.GetRequiredService<ILogger<Program>>();
 logger.LogInformation("Application started");
-logger.LogDebug($"Configured crawl depth: {crawlSettings.Depth}");
+logger.LogInformation($"Configured crawl depth: {crawlSettings.Depth}");
 
 // Get the web crawler and result services
 var webCrawler = serviceProvider.GetRequiredService<IWebCrawler>();
@@ -155,24 +155,14 @@ try
     Console.WriteLine();
     Console.WriteLine("Exporting results to files...");
     
-    // Export all results to JSON
-    var jsonPath = resultExporter.ExportToJson(results, rootUrl);
-    Console.WriteLine($"All results exported to JSON: {jsonPath}");
+    // Export all results to a single Excel file with multiple sheets
+    var excelPath = resultExporter.ExportToExcel(results, stats, rootUrl);
+    Console.WriteLine($"All results exported to Excel: {excelPath}");
     
-    // Export all results to CSV
-    var csvPath = resultExporter.ExportToCsv(results, rootUrl);
-    Console.WriteLine($"All results exported to CSV: {csvPath}");
-    
-    // Export response time statistics
-    var responseTimeStatsPath = resultExporter.ExportResponseTimeStatisticsToCsv(stats, rootUrl);
-    Console.WriteLine($"Response time statistics exported to CSV: {responseTimeStatsPath}");
-    
-    // Export non-successful results to a separate CSV file
-    if (nonSuccessfulUrls.Count > 0)
-    {
-        var errorsCsvPath = resultExporter.ExportNonSuccessfulResultsToCsv(results, rootUrl);
-        Console.WriteLine($"Error results exported to CSV: {errorsCsvPath}");
-    }
+    // Keep the console window open
+    Console.WriteLine();
+    Console.WriteLine("Press any key to exit...");
+    Console.ReadKey();
 }
 catch (Exception ex)
 {
@@ -180,11 +170,6 @@ catch (Exception ex)
     logger.LogError(ex, "Error during crawl");
     Console.WriteLine($"Error during crawl: {ex.Message}");
 }
-
-// Keep the console window open
-Console.WriteLine();
-Console.WriteLine("Press any key to exit...");
-Console.ReadKey();
 
 // Helper method to calculate percentage
 static double CalculatePercentage(int count, int total)

@@ -1,7 +1,7 @@
 using System.Text;
-using System.Text.Json;
 using WebCrawler.Interfaces;
 using WebCrawler.Models;
+using ClosedXML.Excel;
 
 namespace WebCrawler.Services;
 
@@ -25,127 +25,122 @@ public class ResultExporter
     }
 
     /// <summary>
-    /// Exports crawl results to a JSON file
+    /// Exports all crawl data to a single Excel file with multiple worksheets
     /// </summary>
     /// <param name="results">The crawl results to export</param>
-    /// <param name="rootUrl">The root URL that was crawled</param>
-    /// <returns>The path to the exported file</returns>
-    public string ExportToJson(IEnumerable<CrawlResult> results, string rootUrl)
-    {
-        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-        var safeRootUrl = GetSafeFilename(rootUrl);
-        var filename = $"{safeRootUrl}_{timestamp}.json";
-        var filePath = Path.Combine(_resultsDirectory, filename);
-
-        var jsonOptions = new JsonSerializerOptions
-        {
-            WriteIndented = true
-        };
-
-        var json = JsonSerializer.Serialize(results, jsonOptions);
-        File.WriteAllText(filePath, json);
-
-        return filePath;
-    }
-
-    /// <summary>
-    /// Exports crawl results to a CSV file
-    /// </summary>
-    /// <param name="results">The crawl results to export</param>
-    /// <param name="rootUrl">The root URL that was crawled</param>
-    /// <returns>The path to the exported file</returns>
-    public string ExportToCsv(IEnumerable<CrawlResult> results, string rootUrl)
-    {
-        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-        var safeRootUrl = GetSafeFilename(rootUrl);
-        var filename = $"{safeRootUrl}_{timestamp}.csv";
-        var filePath = Path.Combine(_resultsDirectory, filename);
-
-        var csv = new StringBuilder();
-
-        // Add CSV header
-        csv.AppendLine("URL,StatusCode,ResponseTimeMs,ErrorMessage");
-
-        // Add rows
-        foreach (var result in results)
-        {
-            var url = EscapeCsvField(result.Url);
-            var errorMessage = EscapeCsvField(result.ErrorMessage ?? string.Empty);
-            csv.AppendLine($"{url},{result.StatusCode},{result.ResponseTimeMs},{errorMessage}");
-        }
-
-        File.WriteAllText(filePath, csv.ToString());
-
-        return filePath;
-    }
-
-    /// <summary>
-    /// Exports non-successful results to a separate file
-    /// </summary>
-    /// <param name="results">The crawl results to filter and export</param>
-    /// <param name="rootUrl">The root URL that was crawled</param>
-    /// <returns>The path to the exported file</returns>
-    public string ExportNonSuccessfulResultsToCsv(IEnumerable<CrawlResult> results, string rootUrl)
-    {
-        var nonSuccessfulResults = results.Where(r => !r.IsSuccess).ToList();
-
-        if (!nonSuccessfulResults.Any())
-        {
-            return string.Empty;
-        }
-
-        var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-        var safeRootUrl = GetSafeFilename(rootUrl);
-        var filename = $"{safeRootUrl}_{timestamp}_errors.csv";
-        var filePath = Path.Combine(_resultsDirectory, filename);
-
-        var csv = new StringBuilder();
-
-        // Add CSV header
-        csv.AppendLine("URL,StatusCode,ResponseTimeMs,ErrorMessage");
-
-        // Add rows
-        foreach (var result in nonSuccessfulResults)
-        {
-            var url = EscapeCsvField(result.Url);
-            var errorMessage = EscapeCsvField(result.ErrorMessage ?? string.Empty);
-            csv.AppendLine($"{url},{result.StatusCode},{result.ResponseTimeMs},{errorMessage}");
-        }
-
-        File.WriteAllText(filePath, csv.ToString());
-
-        return filePath;
-    }
-
-    /// <summary>
-    /// Exports response time statistics to a CSV file
-    /// </summary>
     /// <param name="stats">The crawl statistics to export</param>
     /// <param name="rootUrl">The root URL that was crawled</param>
     /// <returns>The path to the exported file</returns>
-    public string ExportResponseTimeStatisticsToCsv(CrawlStatistics stats, string rootUrl)
+    public string ExportToExcel(IEnumerable<CrawlResult> results, CrawlStatistics stats, string rootUrl)
     {
         var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
         var safeRootUrl = GetSafeFilename(rootUrl);
-        var filename = $"{safeRootUrl}_{timestamp}_response_times.csv";
+        var filename = $"{safeRootUrl}_{timestamp}.xlsx";
         var filePath = Path.Combine(_resultsDirectory, filename);
         
-        var csv = new StringBuilder();
+        using var workbook = new XLWorkbook();
+        
+        // Create statistics worksheet
+        var statsSheet = workbook.Worksheets.Add("Statistics");
         
         // Add summary statistics
-        csv.AppendLine("Statistic,Value,Unit");
-        csv.AppendLine($"Total URLs Processed,{stats.VisitedCount},count");
-        csv.AppendLine($"Minimum Response Time,{stats.MinResponseTimeMs},ms");
-        csv.AppendLine($"Maximum Response Time,{stats.MaxResponseTimeMs},ms");
-        csv.AppendLine($"Average Response Time,{stats.AverageResponseTimeMs:F2},ms");
-        csv.AppendLine($"Median Response Time (P50),{stats.MedianResponseTimeMs},ms");
-        csv.AppendLine($"90th Percentile (P90),{stats.P90ResponseTimeMs},ms");
-        csv.AppendLine($"95th Percentile (P95),{stats.P95ResponseTimeMs},ms");
-        csv.AppendLine($"99th Percentile (P99),{stats.P99ResponseTimeMs},ms");
+        statsSheet.Cell("A1").Value = "Statistic";
+        statsSheet.Cell("B1").Value = "Value";
+        statsSheet.Cell("C1").Value = "Unit";
+        
+        // Format headers
+        var headerRange = statsSheet.Range("A1:C1");
+        headerRange.Style.Font.Bold = true;
+        headerRange.Style.Fill.BackgroundColor = XLColor.LightGray;
+        
+        int row = 2;
+        
+        // Add visit count statistics
+        statsSheet.Cell(row, 1).Value = "Total URLs Processed";
+        statsSheet.Cell(row, 2).Value = stats.VisitedCount;
+        statsSheet.Cell(row, 3).Value = "count";
+        row++;
+        
+        statsSheet.Cell(row, 1).Value = "Successful Requests (2xx)";
+        statsSheet.Cell(row, 2).Value = stats.SuccessCount;
+        statsSheet.Cell(row, 3).Value = "count";
+        row++;
+        
+        statsSheet.Cell(row, 1).Value = "Redirects (3xx)";
+        statsSheet.Cell(row, 2).Value = stats.RedirectCount;
+        statsSheet.Cell(row, 3).Value = "count";
+        row++;
+        
+        statsSheet.Cell(row, 1).Value = "Client Errors (4xx)";
+        statsSheet.Cell(row, 2).Value = stats.ClientErrorCount;
+        statsSheet.Cell(row, 3).Value = "count";
+        row++;
+        
+        statsSheet.Cell(row, 1).Value = "Server Errors (5xx)";
+        statsSheet.Cell(row, 2).Value = stats.ServerErrorCount;
+        statsSheet.Cell(row, 3).Value = "count";
+        row++;
+        
+        statsSheet.Cell(row, 1).Value = "Other Errors";
+        statsSheet.Cell(row, 2).Value = stats.OtherErrorCount;
+        statsSheet.Cell(row, 3).Value = "count";
+        row++;
+        
+        // Add response time statistics
+        row++; // Add blank row for separation
+        statsSheet.Cell(row, 1).Value = "Response Time Statistics";
+        statsSheet.Range(row, 1, row, 3).Merge();
+        statsSheet.Cell(row, 1).Style.Font.Bold = true;
+        row++;
+        
+        statsSheet.Cell(row, 1).Value = "Minimum Response Time";
+        statsSheet.Cell(row, 2).Value = stats.MinResponseTimeMs;
+        statsSheet.Cell(row, 3).Value = "ms";
+        row++;
+        
+        statsSheet.Cell(row, 1).Value = "Maximum Response Time";
+        statsSheet.Cell(row, 2).Value = stats.MaxResponseTimeMs;
+        statsSheet.Cell(row, 3).Value = "ms";
+        row++;
+        
+        statsSheet.Cell(row, 1).Value = "Average Response Time";
+        statsSheet.Cell(row, 2).Value = stats.AverageResponseTimeMs;
+        statsSheet.Cell(row, 2).Style.NumberFormat.Format = "0.00";
+        statsSheet.Cell(row, 3).Value = "ms";
+        row++;
+        
+        statsSheet.Cell(row, 1).Value = "Median Response Time (P50)";
+        statsSheet.Cell(row, 2).Value = stats.MedianResponseTimeMs;
+        statsSheet.Cell(row, 3).Value = "ms";
+        row++;
+        
+        statsSheet.Cell(row, 1).Value = "90th Percentile (P90)";
+        statsSheet.Cell(row, 2).Value = stats.P90ResponseTimeMs;
+        statsSheet.Cell(row, 3).Value = "ms";
+        row++;
+        
+        statsSheet.Cell(row, 1).Value = "95th Percentile (P95)";
+        statsSheet.Cell(row, 2).Value = stats.P95ResponseTimeMs;
+        statsSheet.Cell(row, 3).Value = "ms";
+        row++;
+        
+        statsSheet.Cell(row, 1).Value = "99th Percentile (P99)";
+        statsSheet.Cell(row, 2).Value = stats.P99ResponseTimeMs;
+        statsSheet.Cell(row, 3).Value = "ms";
+        row++;
         
         // Add distribution data
-        csv.AppendLine();
-        csv.AppendLine("Response Time Range,Count,Percentage");
+        row++; // Add blank row for separation
+        statsSheet.Cell(row, 1).Value = "Response Time Distribution";
+        statsSheet.Range(row, 1, row, 3).Merge();
+        statsSheet.Cell(row, 1).Style.Font.Bold = true;
+        row++;
+        
+        statsSheet.Cell(row, 1).Value = "Response Time Range";
+        statsSheet.Cell(row, 2).Value = "Count";
+        statsSheet.Cell(row, 3).Value = "Percentage";
+        statsSheet.Range(row, 1, row, 3).Style.Font.Bold = true;
+        row++;
         
         double percentUnder100ms = stats.VisitedCount > 0 ? (double)stats.ResponsesUnder100ms / stats.VisitedCount * 100 : 0;
         double percent100to500ms = stats.VisitedCount > 0 ? (double)stats.ResponsesBetween100msAnd500ms / stats.VisitedCount * 100 : 0;
@@ -153,26 +148,122 @@ public class ResultExporter
         double percent1to3s = stats.VisitedCount > 0 ? (double)stats.ResponsesBetween1sAnd3s / stats.VisitedCount * 100 : 0;
         double percentOver3s = stats.VisitedCount > 0 ? (double)stats.ResponsesOver3s / stats.VisitedCount * 100 : 0;
         
-        csv.AppendLine($"Under 100ms,{stats.ResponsesUnder100ms},{percentUnder100ms:F2}%");
-        csv.AppendLine($"100ms-500ms,{stats.ResponsesBetween100msAnd500ms},{percent100to500ms:F2}%");
-        csv.AppendLine($"500ms-1s,{stats.ResponsesBetween500msAnd1s},{percent500to1s:F2}%");
-        csv.AppendLine($"1s-3s,{stats.ResponsesBetween1sAnd3s},{percent1to3s:F2}%");
-        csv.AppendLine($"Over 3s,{stats.ResponsesOver3s},{percentOver3s:F2}%");
+        statsSheet.Cell(row, 1).Value = "Under 100ms";
+        statsSheet.Cell(row, 2).Value = stats.ResponsesUnder100ms;
+        statsSheet.Cell(row, 3).Value = percentUnder100ms / 100; // Excel percentage format
+        statsSheet.Cell(row, 3).Style.NumberFormat.Format = "0.00%";
+        row++;
         
-        // Add raw response times
-        if (stats.AllResponseTimes.Count > 0)
+        statsSheet.Cell(row, 1).Value = "100ms-500ms";
+        statsSheet.Cell(row, 2).Value = stats.ResponsesBetween100msAnd500ms;
+        statsSheet.Cell(row, 3).Value = percent100to500ms / 100;
+        statsSheet.Cell(row, 3).Style.NumberFormat.Format = "0.00%";
+        row++;
+        
+        statsSheet.Cell(row, 1).Value = "500ms-1s";
+        statsSheet.Cell(row, 2).Value = stats.ResponsesBetween500msAnd1s;
+        statsSheet.Cell(row, 3).Value = percent500to1s / 100;
+        statsSheet.Cell(row, 3).Style.NumberFormat.Format = "0.00%";
+        row++;
+        
+        statsSheet.Cell(row, 1).Value = "1s-3s";
+        statsSheet.Cell(row, 2).Value = stats.ResponsesBetween1sAnd3s;
+        statsSheet.Cell(row, 3).Value = percent1to3s / 100;
+        statsSheet.Cell(row, 3).Style.NumberFormat.Format = "0.00%";
+        row++;
+        
+        statsSheet.Cell(row, 1).Value = "Over 3s";
+        statsSheet.Cell(row, 2).Value = stats.ResponsesOver3s;
+        statsSheet.Cell(row, 3).Value = percentOver3s / 100;
+        statsSheet.Cell(row, 3).Style.NumberFormat.Format = "0.00%";
+        row++;
+        
+        // Auto-fit columns
+        statsSheet.Columns().AdjustToContents();
+        
+        // Create crawl results worksheet
+        var resultsSheet = workbook.Worksheets.Add("Crawl Results");
+        
+        // Add headers for crawl results
+        resultsSheet.Cell("A1").Value = "URL";
+        resultsSheet.Cell("B1").Value = "Status Code";
+        resultsSheet.Cell("C1").Value = "Response Time (ms)";
+        resultsSheet.Cell("D1").Value = "Success";
+        resultsSheet.Cell("E1").Value = "Error Message";
+        
+        // Format headers
+        resultsSheet.Range("A1:E1").Style.Font.Bold = true;
+        resultsSheet.Range("A1:E1").Style.Fill.BackgroundColor = XLColor.LightGray;
+        
+        // Add rows
+        row = 2;
+        foreach (var result in results)
         {
-            csv.AppendLine();
-            csv.AppendLine("ResponseTime (ms)");
-            
-            // Sort response times from slowest to fastest for easier analysis
-            foreach (var responseTime in stats.AllResponseTimes.OrderByDescending(t => t))
-            {
-                csv.AppendLine($"{responseTime}");
-            }
+            resultsSheet.Cell(row, 1).Value = result.Url;
+            resultsSheet.Cell(row, 2).Value = result.StatusCode;
+            resultsSheet.Cell(row, 3).Value = result.ResponseTimeMs;
+            resultsSheet.Cell(row, 4).Value = result.IsSuccess;
+            resultsSheet.Cell(row, 5).Value = result.ErrorMessage ?? string.Empty;
+            row++;
         }
         
-        File.WriteAllText(filePath, csv.ToString());
+        // Auto-fit columns
+        resultsSheet.Columns().AdjustToContents();
+        
+        // Create response times worksheet
+        if (stats.AllResponseTimes.Count > 0)
+        {
+            var responsesSheet = workbook.Worksheets.Add("Response Times");
+            
+            // Add header
+            responsesSheet.Cell("A1").Value = "Response Time (ms)";
+            responsesSheet.Cell("A1").Style.Font.Bold = true;
+            responsesSheet.Cell("A1").Style.Fill.BackgroundColor = XLColor.LightGray;
+            
+            // Add response times (sorted from slowest to fastest for easier analysis)
+            row = 2;
+            foreach (var responseTime in stats.AllResponseTimes.OrderByDescending(t => t))
+            {
+                responsesSheet.Cell(row, 1).Value = responseTime;
+                row++;
+            }
+            
+            // Auto-fit columns
+            responsesSheet.Columns().AdjustToContents();
+        }
+        
+        // Create errors worksheet if there are any non-successful results
+        var nonSuccessfulResults = results.Where(r => !r.IsSuccess).ToList();
+        if (nonSuccessfulResults.Any())
+        {
+            var errorsSheet = workbook.Worksheets.Add("Errors");
+            
+            // Add headers
+            errorsSheet.Cell("A1").Value = "URL";
+            errorsSheet.Cell("B1").Value = "Status Code";
+            errorsSheet.Cell("C1").Value = "Response Time (ms)";
+            errorsSheet.Cell("D1").Value = "Error Message";
+            
+            // Format headers
+            errorsSheet.Range("A1:D1").Style.Font.Bold = true;
+            errorsSheet.Range("A1:D1").Style.Fill.BackgroundColor = XLColor.LightGray;
+            
+            // Add rows
+            row = 2;
+            foreach (var result in nonSuccessfulResults)
+            {
+                errorsSheet.Cell(row, 1).Value = result.Url;
+                errorsSheet.Cell(row, 2).Value = result.StatusCode;
+                errorsSheet.Cell(row, 3).Value = result.ResponseTimeMs;
+                errorsSheet.Cell(row, 4).Value = result.ErrorMessage ?? string.Empty;
+                row++;
+            }
+            
+            // Auto-fit columns
+            errorsSheet.Columns().AdjustToContents();
+        }
+        
+        workbook.SaveAs(filePath);
         
         return filePath;
     }
@@ -207,30 +298,5 @@ public class ResultExporter
             // If URL parsing fails, return a generic name
             return "crawl_results";
         }
-    }
-
-    /// <summary>
-    /// Escapes a field for CSV format
-    /// </summary>
-    /// <param name="field">The field value to escape</param>
-    /// <returns>The escaped field value</returns>
-    private string EscapeCsvField(string field)
-    {
-        if (string.IsNullOrEmpty(field))
-        {
-            return string.Empty;
-        }
-
-        bool requiresQuoting = field.Contains(',') || field.Contains('"') || field.Contains('\r') || field.Contains('\n');
-
-        if (requiresQuoting)
-        {
-            // Double up any double quotes
-            field = field.Replace("\"", "\"\"");
-            // Wrap in quotes
-            return $"\"{field}\"";
-        }
-
-        return field;
     }
 }
